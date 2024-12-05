@@ -1,0 +1,45 @@
+Step move Cerficate fome laptop to Production
+
+[root@localhost /]# cd home/
+[root@localhost home]# cd tassanan/
+[root@localhost tassanan]# sudo dnf install unzip -y
+[root@localhost tassanan]# unzip star_getinvoice_2024.zip
+[root@localhost tassanan]# ll
+
+Step ใช้ในการรวมไฟล์ certificate หลายไฟล์เข้าด้วยกันเพื่อสร้างไฟล์ fullchain.pem ซึ่งจะประกอบด้วย ใบรับรอง (certificate)
+[root@localhost star_getinvoice_2024]# cat star_getinvoice_net.crt DigiCertCA.crt TrustedRoot.crt > fullchain.pem
+
+Step ใช้ในการสร้าง PKCS#12 (หรือ .p12) keystore สำหรับการเก็บข้อมูลใบรับรอง (certificate) และคีย์ส่วนตัว (private key) ในไฟล์เดียว  (จะมีให้สร้าง password )
+[root@localhost star_getinvoice_2024]# openssl pkcs12 -export   -inkey _.getinvoice.net.key   -in star_getinvoice_net.crt   -certfile fullchain.pem   -out keystore.p12
+
+[root@localhost star_getinvoice_2024]# mv keystore.p12 /opt/apache-tomcat-10.1.33/conf/
+[root@localhost star_getinvoice_2024]# chmod 600 /opt/apache-tomcat-10.1.33/conf/keystore.p12
+[root@localhost star_getinvoice_2024]# vi /opt/apache-tomcat-10.1.33/conf/server.xml
+
+Step Config 
+
+<Connector port="8443" protocol="org.apache.coyote.http11.Http11NioProtocol"
+               maxThreads="150" SSLEnabled="true"
+               maxParameterCount="1000"
+>
+<UpgradeProtocol className="org.apache.coyote.http2.Http2Protocol" />
+<SSLHostConfig>
+<Certificate certificateKeystoreFile="/opt/apache-tomcat-10.1.33/conf/keystore.p12"
+                         certificateKeystorePassword="Dena_9826" type="RSA" />
+</SSLHostConfig>
+</Connector>
+
+Step Add port in securezone
+[root@localhost star_getinvoice_2024]# sudo firewall-cmd --zone=securezone --permanent --add-port=8443/tcp
+[root@localhost star_getinvoice_2024]# sudo firewall-cmd --reload
+[root@localhost star_getinvoice_2024]# sudo firewall-cmd --zone=securezone --list-all
+
+Step start tomcat
+[root@localhost apache-tomcat-10.1.33]# cd bin/
+[root@localhost bin]# ./startup.sh
+[root@localhost bin]# ps -ef | grep tomcat
+[root@localhost bin]# kill -9 "PID"
+[root@localhost bin]# ./startup.sh
+
+Step Check 
+[root@localhost bin]# sudo ss -tuln | grep 8443
